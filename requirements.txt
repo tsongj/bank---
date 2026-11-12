@@ -1,0 +1,4 @@
+flet
+sqlalchemy
+# 语音播报依赖 Windows SAPI，仅在桌面端安装；安卓端由 voice_service 自动降级为静音
+pyttsx3; sys_platform == "win32"
