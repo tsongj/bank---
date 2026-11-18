@@ -42,6 +42,7 @@ CREDIT_PENALTY = 20           # 每次发生透支扣减的征信分
 CNY_NAME = "人民币"
 CNY_SYMBOL = "元"
 FX_BASE_RATE = 0.10           # 中间价基准：1 成长币 ≈ 0.10 元
+FX_MID_RATE = 0.10            # 实时中间价（可由家长动态调整）
 FX_VOLATILITY = 0.30          # 行情波动幅度（±30%，双正弦叠加）
 FX_SPREAD = 0.06              # 买卖点差：买入价低于中间价、卖出价高于中间价
 FX_MIN_RATE = 0.05            # 汇率地板

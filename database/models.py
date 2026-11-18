@@ -35,6 +35,7 @@ class Account(Base):
     pin = Column(String(64), default=config.KID_DEFAULT_PIN)    # 登录/审批密码
     balance = Column(Float, default=0.0)                        # 成长币缓存余额
     cny_balance = Column(Float, default=0.0)                    # 人民币钱包（结汇所得/家长存入）
+    real_balance = Column(Float, default=0.0)                   # 真实世界账户（人民币）
     credit_score = Column(Integer, default=config.INIT_CREDIT_SCORE)  # 征信分
     overdraft = Column(Boolean, default=False)                  # 是否处于透支状态
     created_at = Column(DateTime, default=datetime.now)
@@ -71,6 +72,7 @@ class Transaction(Base):
     id = Column(Integer, primary_key=True)
     account_id = Column(Integer, ForeignKey("account.id"), nullable=False)
     amount = Column(Float, nullable=False)               # 正=存入，负=支出
+    currency = Column(String(16), default="coin")        # coin 金币 / cny 人民币
     balance_after = Column(Float, nullable=False)        # 交易后余额快照
     type = Column(String(16), nullable=False)            # 见 TxType
     reason = Column(String(128), default="")             # 变动原因
@@ -96,6 +98,11 @@ class TxType:
     FX = "fx"                # 结汇 / 购汇（成长币侧）
     STOCK_BUY = "stock_buy"  # 买入股票
     STOCK_SELL = "stock_sell"  # 卖出股票
+    TRANSFER = "transfer"    # 转账
+    FUND_BUY = "fund_buy"    # 买入理财
+    FUND_SELL = "fund_sell"  # 赎回理财
+    WITHDRAW_REAL = "withdraw_real"  # 取款到真实账户
+    INJECTION = "injection"  # 央行投放货币
 
 
 class TaskRule(Base):
@@ -213,8 +220,7 @@ class FxTrade(Base):
 
 
 class Investment(Base):
-    """父母投资款：家长对孩子的人民币投入，单独一本账。
-
+    """父母投资款：家长对孩子的投入，单独一本账。
     与孩子的成长币账户完全隔离，孩子端只读展示，体现“父母为我花了多少钱”。
     """
 
@@ -222,7 +228,8 @@ class Investment(Base):
 
     id = Column(Integer, primary_key=True)
     account_id = Column(Integer, ForeignKey("account.id"), nullable=False)
-    amount = Column(Float, nullable=False)                # 人民币金额
+    amount = Column(Float, nullable=False)                # 金额
+    currency = Column(String(16), default="cny")          # cny 人民币 / coin 金币
     purpose = Column(String(128), default="")             # 用途，如“钢琴课学费”
     operator = Column(String(32), default="")             # 出资家长
     invested_at = Column(DateTime, default=datetime.now)  # 业务发生时间（家长可指定）
@@ -231,7 +238,8 @@ class Investment(Base):
     account = relationship("Account", back_populates="investments")
 
     def __repr__(self) -> str:
-        return f"<Invest {self.amount}元 {self.purpose}>"
+        unit = "元" if self.currency == "cny" else "金币"
+        return f"<Invest {self.amount}{unit} {self.purpose}>"
 
 
 class Stock(Base):
@@ -310,3 +318,88 @@ class StockTrade(Base):
 
     def __repr__(self) -> str:
         return f"<StockTrade {self.direction} {self.shares}@{self.price}>"
+
+
+class DepositProduct(Base):
+    """定期存款产品：家长发布，包含利率和期限。"""
+
+    __tablename__ = "deposit_product"
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String(64), nullable=False)
+    rate = Column(Float, nullable=False)
+    lock_days = Column(Integer, nullable=False)
+    enabled = Column(Boolean, default=True)
+
+    def __repr__(self) -> str:
+        return f"<DepositProduct {self.title} {self.rate:.0%}>"
+
+
+class InvestmentRequest(Base):
+    """投资基金申请：孩子申请，家长审批。"""
+
+    __tablename__ = "investment_request"
+
+    id = Column(Integer, primary_key=True)
+    account_id = Column(Integer, ForeignKey("account.id"), nullable=False)
+    amount = Column(Float, nullable=False)
+    currency = Column(String(16), default="cny")    # cny 人民币 / coin 金币
+    purpose = Column(String(128), nullable=False)
+    status = Column(String(16), default="pending")  # pending/approved/rejected
+    created_at = Column(DateTime, default=datetime.now)
+    reviewed_at = Column(DateTime, nullable=True)
+
+    account = relationship("Account")
+
+    def __repr__(self) -> str:
+        unit = "元" if self.currency == "cny" else "金币"
+        return f"<InvestReq {self.amount}{unit} {self.status}>"
+
+
+class FundProduct(Base):
+    """理财产品：家长发行，包含净值波动。"""
+
+    __tablename__ = "fund_product"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(64), nullable=False)
+    code = Column(String(16), unique=True, nullable=False)
+    icon = Column(String(16), default="🏦")
+    nav = Column(Float, default=1.0)  # 当前净值
+    created_at = Column(DateTime, default=datetime.now)
+    enabled = Column(Boolean, default=True)
+
+    def __repr__(self) -> str:
+        return f"<Fund {self.name} NAV={self.nav}>"
+
+
+class FundHolding(Base):
+    """理财持仓。"""
+
+    __tablename__ = "fund_holding"
+
+    id = Column(Integer, primary_key=True)
+    account_id = Column(Integer, ForeignKey("account.id"), nullable=False)
+    fund_id = Column(Integer, ForeignKey("fund_product.id"), nullable=False)
+    shares = Column(Float, default=0.0)
+    cost = Column(Float, default=0.0)
+
+    account = relationship("Account")
+    fund = relationship("FundProduct")
+
+    def __repr__(self) -> str:
+        return f"<FundHolding fund={self.fund_id} shares={self.shares}>"
+
+
+class FundNavHistory(Base):
+    """理财净值历史。"""
+
+    __tablename__ = "fund_nav_history"
+
+    id = Column(Integer, primary_key=True)
+    fund_id = Column(Integer, ForeignKey("fund_product.id"), nullable=False)
+    nav = Column(Float, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+
+    def __repr__(self) -> str:
+        return f"<NavHist fund={self.fund_id} NAV={self.nav}>"

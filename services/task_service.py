@@ -53,6 +53,23 @@ class TaskService:
             s.add(TaskRule(title=title, icon=icon or "⭐", amount=float(amount), category=category))
 
     @staticmethod
+    def update_rule(rule_id: int, title: str, icon: str, amount: float, category: str):
+        with session_scope() as s:
+            rule = s.get(TaskRule, rule_id)
+            if rule:
+                rule.title = title
+                rule.icon = icon
+                rule.amount = float(amount)
+                rule.category = category
+
+    @staticmethod
+    def delete_rule(rule_id: int):
+        with session_scope() as s:
+            rule = s.get(TaskRule, rule_id)
+            if rule:
+                s.delete(rule)
+
+    @staticmethod
     def toggle_rule(rule_id: int):
         with session_scope() as s:
             rule = s.get(TaskRule, rule_id)
@@ -154,5 +171,9 @@ class TaskService:
 
     @staticmethod
     def list_kids():
+        from sqlalchemy.orm import joinedload
         with session_scope() as s:
-            return s.query(Account).filter(Account.role == "kid").order_by(Account.id).all()
+            return s.query(Account).options(
+                joinedload(Account.investments),
+                joinedload(Account.holdings)
+            ).filter(Account.role == "kid").order_by(Account.id).all()

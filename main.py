@@ -17,6 +17,8 @@ from views.kid_home_view import KidHomeView
 from views.kid_mall_view import KidMallView
 from views.login_view import LoginView
 from views.parent_admin_view import ParentAdminView
+from views.parent_invest_view import ParentInvestView
+from views.kid_fund_view import KidFundView
 
 
 def bootstrap():
@@ -81,11 +83,13 @@ class FamilyBankApp:
         if self.current is not None and self.current.role == "kid":
             return [
                 ("我的账户", ft.Icons.HOME, KidHomeView),
+                ("家庭理财", ft.Icons.ACCOUNT_BALANCE_WALLET, KidFundView),
                 ("心愿超市", ft.Icons.STORE, KidMallView),
                 ("电子账单", ft.Icons.RECEIPT_LONG, BillHistoryView),
             ]
         return [
             ("管理台", ft.Icons.WALLET, ParentAdminView),
+            ("投资理财", ft.Icons.ACCOUNT_BALANCE_WALLET, ParentInvestView),
             ("电子账单", ft.Icons.RECEIPT_LONG, BillHistoryView),
         ]
 
@@ -205,4 +209,5 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    ft.run(main)
+    from flet.app import run
+    run(main, view=ft.AppView.WEB_BROWSER)

@@ -28,7 +28,19 @@ Base = declarative_base()
 # 老版本数据库缺少的列：{表名: [(列名, 建列 SQL 片段)]}
 # create_all 只会新建表，不会给已有表补列，所以这里做一次轻量迁移。
 _ADDED_COLUMNS = {
-    "account": [("cny_balance", "FLOAT DEFAULT 0")],
+    "account": [
+        ("cny_balance", "FLOAT DEFAULT 0"),
+        ("real_balance", "FLOAT DEFAULT 0"),
+    ],
+    "transaction": [
+        ("currency", "VARCHAR(16) DEFAULT 'coin'"),
+    ],
+    "investment": [
+        ("currency", "VARCHAR(16) DEFAULT 'cny'"),
+    ],
+    "investment_request": [
+        ("currency", "VARCHAR(16) DEFAULT 'cny'"),
+    ],
 }
 
 

@@ -5,7 +5,7 @@ import flet as ft
 
 from services.bank_service import BankService
 from services.task_service import TaskService
-from views import (
+from . import (
     ACCENT,
     BLUE,
     DANGER,
